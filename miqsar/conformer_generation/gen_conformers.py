@@ -1,7 +1,7 @@
 import os
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import pickle
 import numpy as np
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from .psearch_master import gen_stereo_rdkit, gen_conf_rdkit, read_input
 
 
@@ -24,7 +24,7 @@ def get_n_confs(conf_log, nconf_list, out_partfname):
     # confs for all mols
     all_confs_list = list(read_input.read_input(conf_log))
     if not all_confs_list:
-        print('Error. Conformer log file is empty', conf_log)
+        #print('Error. Conformer log file is empty', conf_log)
         return None
 
     out_fnames = []
@@ -35,7 +35,7 @@ def get_n_confs(conf_log, nconf_list, out_partfname):
     return out_fnames
 
 
-def gen_confs(fname, nconfs_list, energy=100, rms=0.5, stereo=True, path=None, ncpu=4):
+def gen_confs(fname, nconfs_list, stereo=True, path=None, ncpu=4):
     '''
 
     :param fname: smi file. Mol_name, smiles, act
@@ -52,7 +52,7 @@ def gen_confs(fname, nconfs_list, energy=100, rms=0.5, stereo=True, path=None, n
         os.makedirs(path)
 
     if stereo:
-        print('Stereo generation')
+        #print('Stereo generation')
         in_fname = os.path.join(path, 'stereo-{}'.format(os.path.basename(fname)))
         gen_stereo_rdkit.main_params(in_fname=fname,
                                      out_fname=in_fname,
@@ -66,19 +66,18 @@ def gen_confs(fname, nconfs_list, energy=100, rms=0.5, stereo=True, path=None, n
     else:
         in_fname = fname
 
-    print('Conformers generation')
+    #print('Conformers generation')
 
     max_conf = max(nconfs_list)
 
     conf_log = os.path.join(path, 'conf-{0}_{1}_log.pkl'.format(max_conf, os.path.basename(in_fname).split('.')[0]))
     # conf_tupl[-1]=energy
-
     gen_conf_rdkit.main_params(in_fname=in_fname,
                                out_fname=conf_log,
                                id_field_name=None,
                                nconf=max_conf,
-                               energy=energy,
-                               rms=rms,
+                               energy=100,
+                               rms=.5,
                                ncpu=ncpu,
                                seed=42,
                                verbose=False,
@@ -95,7 +94,7 @@ def get_from_exist_log(conf_log, nconfs_list):
     out_partfname = os.path.join(ex_path, 'conf-{0}_{1}.pkl'.format(os.path.basename(conf_log).split('.')[0], '{}'))
 
     out_fnames = get_n_confs(conf_log=conf_log, nconf_list=nconfs_list, out_partfname=out_partfname)
-    print(out_fnames)
+    #print(out_fnames)
 
     return out_fnames
 
@@ -131,5 +130,3 @@ if __name__ == '__main__':
               ncpu=ncpu_)
     else:
         out_fnames = get_from_exist_log(conf_log=ex_log_, nconfs_list=nconf_list_)
-
-
