@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import Sequential, Linear, Sigmoid, Softmax, Tanh
+from torch.nn.functional import softmax
 from .base_nets import BaseRegressor, BaseClassifier, BaseNet
 from .mi_nets import MainNet
 
@@ -25,6 +26,26 @@ class WeightsDropout(nn.Module):
         return w_new
 
 
+class SelfAttention(nn.Module):
+    def __init__(self, inp_dim, out_dim):
+        super().__init__()
+
+        self.w_query = nn.Linear(inp_dim, out_dim)
+        self.w_key = nn.Linear(inp_dim, out_dim)
+        self.w_value = nn.Linear(inp_dim, out_dim)
+
+    def forward(self, x):
+        keys = self.w_key(x)
+        querys = self.w_query(x)
+        values = self.w_value(x)
+
+        att_weights = softmax(querys @ torch.transpose(keys, 2, 1), dim=-1)
+        weighted_values = values[:, :, None] * torch.transpose(att_weights, 2, 1)[:, :, :, None]
+        outputs = weighted_values.sum(dim=1)
+
+        return outputs
+
+
 class AttentionNet(BaseNet):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(init_cuda=init_cuda)
@@ -47,6 +68,37 @@ class AttentionNet(BaseNet):
 
     def forward(self, x, m):
         x = self.main_net(x)
+        x_det = torch.transpose(m * self.detector(x), 2, 1)
+
+        w = Softmax(dim=2)(x_det)
+        w = WeightsDropout(p=self.dropout)(w)
+
+        x = torch.bmm(w, x)
+        out = self.estimator(x)
+        if isinstance(self, BaseClassifier):
+            out = Sigmoid()(out)
+        out = out.view(-1, 1)
+        return w, out
+
+
+class SelfAttentionNet(BaseNet):
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(init_cuda=init_cuda)
+        self.main_net = MainNet(ndim)
+        self.self_attention = SelfAttention(ndim[-1], ndim[-1])
+        self.detector = Sequential(Linear(ndim[-1], det_ndim[0]), Tanh(), Linear(det_ndim[0], 1))
+        self.estimator = Linear(ndim[-1], 1)
+
+        if init_cuda:
+            self.main_net.cuda()
+            self.self_attention.cuda()
+            self.detector.cuda()
+            self.estimator.cuda()
+
+    def forward(self, x, m):
+        x = self.main_net(x)
+        x = self.self_attention(x)
+
         x_det = torch.transpose(m * self.detector(x), 2, 1)
 
         w = Softmax(dim=2)(x_det)
@@ -99,6 +151,16 @@ class AttentionNetClassifier(AttentionNet, BaseClassifier):
 
 
 class AttentionNetRegressor(AttentionNet, BaseRegressor):
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
+
+
+class SelfAttentionNetClassifier(SelfAttentionNet, BaseClassifier):
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
+
+
+class SelfAttentionNetRegressor(SelfAttentionNet, BaseRegressor):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
 

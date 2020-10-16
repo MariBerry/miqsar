@@ -55,7 +55,7 @@ def run(dataset):
             model_builder.train_nets(nets_tuned, x_train, x_val, x_test, y_train, y_val, y_test, idx_val, idx_test,
                                              mode=alg)
 
-            return
+    return
 
 datasets = os.listdir(DATA_DIR)
 if __name__ == '__main__':
