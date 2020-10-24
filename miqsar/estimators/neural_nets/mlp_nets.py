@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torch.nn import Sigmoid, Sequential, Linear, ReLU
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
+from .mi_nets import MainNet
 
 
 class MBSplitter(Dataset):
@@ -31,18 +32,6 @@ class BaseRegressor:
     def loss(self, y_pred, y_true):
         total_loss = nn.MSELoss(reduction='mean')(y_pred, y_true.reshape(-1, 1))
         return total_loss
-
-
-class MainNet:
-    def __new__(cls, ndim):
-        ind, hd1, hd2, hd3 = ndim
-        net = Sequential(Linear(ind, hd1),
-                         ReLU(),
-                         Linear(hd1, hd2),
-                         ReLU(),
-                         Linear(hd2, hd3),
-                         ReLU())
-        return net
 
 
 class MLP(nn.Module):
@@ -162,7 +151,7 @@ class MIWrapper:
             bags_modified = np.asarray([np.amin(bag, axis=0) for bag in bags])
         return bags_modified
 
-    def fit(self, bags, labels, n_epoch=100, batch_size=128, weight_decay=0, dropout=0, lr=0.001):
+    def fit(self, bags, labels, n_epoch=100, batch_size=128, weight_decay=0, dropout=0, temp=1, lr=0.001):
         bags_modified = self.apply_pool(bags)
         self.estimator.fit(bags_modified, labels, n_epoch=n_epoch, batch_size=batch_size,
                            dropout=dropout, weight_decay=weight_decay, lr=lr)

@@ -5,13 +5,13 @@ from .base_nets import BaseNet, BaseRegressor, BaseClassifier
 
 class MainNet:
     def __new__(cls, ndim):
-        ind, hd1, hd2, hd3 = ndim
-        net = Sequential(Linear(ind, hd1),
-                         ReLU(),
-                         Linear(hd1, hd2),
-                         ReLU(),
-                         Linear(hd2, hd3),
-                         ReLU())
+        inp_dim = ndim[0]
+        net = []
+        for dim in ndim[1:]:
+            net.append(Linear(inp_dim, dim))
+            net.append(ReLU())
+            inp_dim = dim
+        net = Sequential(*net)
         return net
 
 

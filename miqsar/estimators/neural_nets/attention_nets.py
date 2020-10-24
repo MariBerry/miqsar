@@ -66,11 +66,48 @@ class AttentionNet(BaseNet):
             self.detector.cuda()
             self.estimator.cuda()
 
+
     def forward(self, x, m):
         x = self.main_net(x)
         x_det = torch.transpose(m * self.detector(x), 2, 1)
 
         w = Softmax(dim=2)(x_det)
+        w = WeightsDropout(p=self.dropout)(w)
+
+        x = torch.bmm(w, x)
+        out = self.estimator(x)
+        if isinstance(self, BaseClassifier):
+            out = Sigmoid()(out)
+        out = out.view(-1, 1)
+        return w, out
+
+
+class TempAttentionNet(BaseNet):
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(init_cuda=init_cuda)
+        self.main_net = MainNet(ndim)
+        self.estimator = Linear(ndim[-1], 1)
+        #
+        input_dim = ndim[-1]
+        attention = []
+        for dim in det_ndim:
+            attention.append(Linear(input_dim, dim))
+            attention.append(Sigmoid())
+            input_dim = dim
+        attention.append(Linear(input_dim, 1))
+        self.detector = Sequential(*attention)
+
+        if init_cuda:
+            self.main_net.cuda()
+            self.detector.cuda()
+            self.estimator.cuda()
+
+
+    def forward(self, x, m):
+        x = self.main_net(x)
+        x_det = torch.transpose(m * self.detector(x), 2, 1)
+
+        w = Softmax(dim=2)(x_det / 0.1)
         w = WeightsDropout(p=self.dropout)(w)
 
         x = torch.bmm(w, x)
@@ -171,5 +208,9 @@ class GatedAttentionNetClassifier(GatedAttentionNet, BaseClassifier):
 
 
 class GatedAttentionNetRegressor(GatedAttentionNet, BaseRegressor):
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
+
+class TempAttentionNetRegressor(TempAttentionNet, BaseRegressor):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
