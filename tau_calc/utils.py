@@ -9,7 +9,8 @@ import pandas as pd
 from miqsar.estimators.neural_nets.base_nets import BaseClassifier
 from miqsar.estimators.neural_nets.mlp_nets import MIWrapperMLPClassifier, MIWrapperMLPRegressor
 from miqsar.estimators.neural_nets.mlp_nets import miWrapperMLPClassifier, miWrapperMLPRegressor
-from miqsar.estimators.neural_nets.attention_nets import AttentionNetClassifier, AttentionNetRegressor
+from miqsar.estimators.neural_nets.attention_nets import (AttentionNetClassifier, AttentionNetRegressor,
+                                                          TempAttentionNetRegressor, GlobalTempAttentionNetRegressor)
 from miqsar.estimators.neural_nets.attention_nets import GatedAttentionNetClassifier, GatedAttentionNetRegressor
 from miqsar.estimators.neural_nets.mi_nets import MINetClassifier, MINetRegressor
 from miqsar.estimators.neural_nets.mi_nets import miNetClassifier, miNetRegressor
@@ -139,20 +140,18 @@ class ModelBuilder:
 
         # weight_decay
         weight_decay_opt = defaultdict(list)
-        for weight_decay in [0.1, 0.01]:
+        for weight_decay in [0, 0.1, 0.01]:
             for net in [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
+                        TempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
+                        GlobalTempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
                         MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
                         miNetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
+                        miNetRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda),
                         MIWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
                         miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        AttentionNetClassifier(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                        MINetClassifier(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        miNetClassifier(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        MIWrapperMLPClassifier(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        miWrapperMLPClassifier(ndim=ndim, pool='mean', init_cuda=self.init_cuda)
-                        ]:
+                        miWrapperMLPRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda)]:
 
-                if 'Classifier' in net.__class__.__name__:
+                if 'Classifier' in net.name():
                     labels_train = np.where(y_train > self.tresh, 1, 0)
                     labels_val = np.where(y_val > self.tresh, 1, 0)
 
@@ -160,15 +159,16 @@ class ModelBuilder:
                             weight_decay=weight_decay, lr=self.lr)
 
                     val_scores = classification_metrics(labels_val, net.predict(x_val))
-                    weight_decay_opt[net.__class__.__name__].append((weight_decay, val_scores['balanced_accuracy']))
+                    weight_decay_opt[net.name()].append((weight_decay, val_scores['balanced_accuracy']))
                 else:
                     net.fit(x_train, y_train, n_epoch=self.n_epoch, batch_size=self.batch_size,
                             weight_decay=weight_decay, lr=self.lr)
                     val_scores = regression_metrics(y_val, net.predict(x_val))
-                    weight_decay_opt[net.__class__.__name__].append((weight_decay, val_scores['r2_score']))
+                    weight_decay_opt[net.name()].append((weight_decay, val_scores['r2_score']))
         #
         hopt = pd.DataFrame()
         for model in weight_decay_opt:
+            print(model)
             hopt['WD'] = [i[0] for i in weight_decay_opt[model]]
             hopt[model] = [i[1] for i in weight_decay_opt[model]]
         hopt.to_csv(os.path.join(self.local_dir, 'weight_decay_opt.csv'))
@@ -177,24 +177,23 @@ class ModelBuilder:
 
         # dropout
         dropout_opt = defaultdict(list)
-        for dropout in [0.2, 0.5, 0.9, 0.95]:
-            for net in [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                        AttentionNetClassifier(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda)]:
+        for dropout in [0, 0.2, 0.5, 0.9, 0.95]:
+            for net in [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda)]:
 
-                if 'Classifier' in net.__class__.__name__:
+                if 'Classifier' in net.name():
                     labels_train = np.where(y_train > self.tresh, 1, 0)
                     labels_val = np.where(y_val > self.tresh, 1, 0)
 
                     net.fit(x_train, labels_train, n_epoch=self.n_epoch, batch_size=self.batch_size,
-                            weight_decay=weight_decay_opt[net.__class__.__name__], dropout=dropout, lr=self.lr)
+                            weight_decay=weight_decay_opt[net.name()], dropout=dropout, lr=self.lr)
 
                     val_scores = classification_metrics(labels_val, net.predict(x_val))
-                    dropout_opt[net.__class__.__name__].append((dropout, val_scores['balanced_accuracy']))
+                    dropout_opt[net.name()].append((dropout, val_scores['balanced_accuracy']))
                 else:
                     net.fit(x_train, y_train, n_epoch=self.n_epoch, batch_size=self.batch_size,
-                            weight_decay=weight_decay_opt[net.__class__.__name__], dropout=dropout, lr=self.lr)
+                            weight_decay=weight_decay_opt[net.name()], dropout=dropout, lr=self.lr)
                     val_scores = regression_metrics(y_val, net.predict(x_val))
-                    dropout_opt[net.__class__.__name__].append((dropout, val_scores['r2_score']))
+                    dropout_opt[net.name()].append((dropout, val_scores['r2_score']))
         #
         hopt = pd.DataFrame()
         for model in dropout_opt:
@@ -217,10 +216,14 @@ class ModelBuilder:
         set_seed(self.seed)
 
         estimators = [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
+                      TempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
+                      GlobalTempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
                       MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
                       miNetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
+                      miNetRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda),
                       MIWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                      miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda)]
+                      miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
+                      miWrapperMLPRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda)]
 
         results = pd.DataFrame()
         for net, (model_name, weight_decay, dropout) in zip(estimators, nets_to_train):
@@ -234,7 +237,7 @@ class ModelBuilder:
             os.mkdir(model_dir)
 
             # fit_predict
-            if 'Classifier' in net.__class__.__name__:
+            if 'Classifier' in net.name():
                 labels_train = np.where(y_train > self.tresh, 1, 0)
                 labels_val = np.where(y_val > self.tresh, 1, 0)
                 labels_test = np.where(y_test > self.tresh, 1, 0)
@@ -268,7 +271,7 @@ class ModelBuilder:
             results = results.append([train_scores, val_scores, test_scores])
 
             # save model
-            torch.save(net, os.path.join(model_dir, 'model.sav'))
+            #torch.save(net, os.path.join(model_dir, 'model.sav'))
 
         csv_file = os.path.join(self.local_dir, 'results.csv')
         if os.path.exists(csv_file):

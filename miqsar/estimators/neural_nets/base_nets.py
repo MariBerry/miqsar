@@ -36,6 +36,9 @@ class BaseNet(nn.Module):
         if self.net and self.init_cuda:
             self.net.cuda()
 
+    def name(self):
+        return self.__class__.__name__
+
     def add_padding(self, x):
         bag_size = max(len(i) for i in x)
         mask = np.ones((len(x), bag_size, 1))

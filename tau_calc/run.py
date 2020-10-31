@@ -33,6 +33,8 @@ def run(dataset):
             model_builder.tresh = 7
 
         for dsc in data['dsc'][alg]:
+            if dsc not in ['morgan']:
+                continue
             CONF_DIR = '{}_{}'.format(dsc, alg)
             CONF_DIR = os.path.join(OUT_DIR, dataset, CONF_DIR)
             os.mkdir(CONF_DIR)

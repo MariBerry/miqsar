@@ -93,3 +93,8 @@ class miNetClassifier(miNet, BaseClassifier):
 class miNetRegressor(miNet, BaseRegressor):
     def __init__(self, ndim=None, pool='mean', init_cuda=False):
         super().__init__(ndim=ndim, pool=pool, init_cuda=init_cuda)
+
+        self.pool = pool
+
+    def name(self):
+        return '{}{}'.format(self.__class__.__name__, self.pool.capitalize())

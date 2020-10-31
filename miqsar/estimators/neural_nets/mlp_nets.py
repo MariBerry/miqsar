@@ -162,6 +162,9 @@ class MIWrapper:
         preds = self.estimator.predict(bags_modified).flatten()
         return preds
 
+    def name(self):
+        return '{}{}'.format(self.__class__.__name__, self.pool.capitalize())
+
 
 class miWrapper:
 
@@ -192,6 +195,9 @@ class miWrapper:
         preds = [self.apply_pool(self.estimator.predict(bag.reshape(-1, bag.shape[-1]))) for bag in bags]
         return np.asarray(preds)
 
+    def name(self):
+        return '{}{}'.format(self.__class__.__name__, self.pool.capitalize())
+
 
 class MIWrapperMLPRegressor(MIWrapper, BaseRegressor):
 
@@ -210,6 +216,7 @@ class MIWrapperMLPClassifier(MIWrapper, BaseClassifier):
 class miWrapperMLPRegressor(miWrapper, BaseRegressor):
 
     def __init__(self, ndim=None, pool='mean', init_cuda=False):
+
         estimator = MLPNetRegressor(ndim=ndim, init_cuda=init_cuda)
         super().__init__(estimator=estimator, pool=pool)
 
