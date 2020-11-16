@@ -21,7 +21,7 @@ def run(dataset):
     os.mkdir(os.path.join(OUT_DIR, dataset))
 
     # 2d tune and build
-    for alg in ['sil', 'mil']:
+    for alg in ['mil']:
         data = DataReader(DATA_DIR, dataset).read_data(DATA_DIR)
 
         model_builder = ModelBuilder(init_cuda=False)

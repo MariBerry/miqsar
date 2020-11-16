@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 from time import time
 from multiprocessing import Pool
-from sklearn.externals import joblib
+#from sklearn.externals import joblib
+import joblib
 from .pmapper import pharmacophore as P
 from .read_input import read_input
 

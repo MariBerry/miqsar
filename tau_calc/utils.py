@@ -141,15 +141,7 @@ class ModelBuilder:
         # weight_decay
         weight_decay_opt = defaultdict(list)
         for weight_decay in [0, 0.1, 0.01]:
-            for net in [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                        TempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                        GlobalTempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                        MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        miNetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        miNetRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda),
-                        MIWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        miWrapperMLPRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda)]:
+            for net in [TempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda)]:
 
                 if 'Classifier' in net.name():
                     labels_train = np.where(y_train > self.tresh, 1, 0)
@@ -177,8 +169,8 @@ class ModelBuilder:
 
         # dropout
         dropout_opt = defaultdict(list)
-        for dropout in [0, 0.2, 0.5, 0.9, 0.95]:
-            for net in [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda)]:
+        for dropout in [0.1, 0.2, 0.4, 0.8, 1, 2]:
+            for net in [TempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda)]:
 
                 if 'Classifier' in net.name():
                     labels_train = np.where(y_train > self.tresh, 1, 0)
@@ -215,15 +207,7 @@ class ModelBuilder:
         det_ndim = (64,)
         set_seed(self.seed)
 
-        estimators = [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                      TempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                      GlobalTempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                      MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                      miNetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                      miNetRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda),
-                      MIWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                      miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                      miWrapperMLPRegressor(ndim=ndim, pool='max', init_cuda=self.init_cuda)]
+        estimators = [TempAttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda)]
 
         results = pd.DataFrame()
         for net, (model_name, weight_decay, dropout) in zip(estimators, nets_to_train):

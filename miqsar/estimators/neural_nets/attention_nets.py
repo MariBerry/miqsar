@@ -106,13 +106,12 @@ class GlobalTempAttentionNet(BaseNet):
 
 
     def forward(self, x, m):
-        temp = self.temp.to(x.device)
+        temp = self.dropout.to(x.device)
 
         x = self.main_net(x)
         x_det = torch.transpose(m * self.detector(x), 2, 1)
 
         w = Softmax(dim=2)(x_det / temp)
-        w = WeightsDropout(p=self.dropout)(w)
 
         x = torch.bmm(w, x)
         out = self.estimator(x)
@@ -150,7 +149,6 @@ class TempAttentionNet(BaseNet):
         x_det = torch.transpose(m * self.detector(x), 2, 1)
 
         w = Softmax(dim=2)(x_det / 0.1)
-        w = WeightsDropout(p=self.dropout)(w)
 
         x = torch.bmm(w, x)
         out = self.estimator(x)
