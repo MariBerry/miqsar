@@ -16,8 +16,11 @@ def enumerate_tautomers_smiles(smiles, stereo=False):
     # Skip sanitize as standardize does this anyway
     mol = Chem.MolFromSmiles(smiles, sanitize=False)
     mol = Standardizer().standardize(mol)
+    tmp = Chem.MolToSmiles(mol, isomericSmiles=stereo) # smiles of original input with/wihout stereo
     tautomers = tautomer.TautomerEnumerator().enumerate(mol)
-    return {Chem.MolToSmiles(m, isomericSmiles=stereo) for m in tautomers}
+    res = {Chem.MolToSmiles(m, isomericSmiles=stereo) for m in tautomers}
+    res.remove(tmp)
+    return tmp,res
 
 def gen_tautomers(data_file,  path, max_n_tau=None):
     out_fname = os.path.join(path, os.path.basename(data_file).split('.')[0] + "_tau.smi")
@@ -36,7 +39,11 @@ def gen_tautomers(data_file,  path, max_n_tau=None):
     #generate tautomers
     with open(out_fname, "wt") as out:
         for i, j, a in zip(smiles, names, act):
-            smile_t = list(enumerate_tautomers_smiles(i, stereo = False))
+            orig,smile_t = enumerate_tautomers_smiles(i, stereo = False)
+            smile_t = list(smile_t)
+            # trick to put input smiles to the 1st place in smile_t:  put it in start and  remove its dupl
+            # form the list
+            smile_t.insert(0, orig)
             for n, tautomer in enumerate(smile_t):
                 k = j + "__{tautomer_id}"
                 out.write(str(tautomer) + "," + k.format(tautomer_id=n) + "," + str(a) + ","+ j + "\n")
