@@ -45,6 +45,14 @@ class MINet(BaseNet):
             self.main_net.cuda()
             self.estimator.cuda()
 
+    def reset_params(self, m):
+        if isinstance(m, nn.Linear):
+            m.reset_parameters()
+
+    def reset_weights(self):
+        self.main_net.apply(self.reset_params)
+        self.estimator.apply(self.reset_params)
+
     def forward(self, x, m):
         out = self.main_net(x)
         out = self.pooling(out, m)

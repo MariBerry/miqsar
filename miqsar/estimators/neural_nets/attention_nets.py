@@ -66,7 +66,6 @@ class AttentionNet(BaseNet):
             self.detector.cuda()
             self.estimator.cuda()
 
-
     def forward(self, x, m):
         x = self.main_net(x)
         x_det = torch.transpose(m * self.detector(x), 2, 1)
@@ -103,7 +102,6 @@ class GlobalTempAttentionNet(BaseNet):
             self.main_net.cuda()
             self.detector.cuda()
             self.estimator.cuda()
-
 
     def forward(self, x, m):
         temp = self.dropout.to(x.device)
@@ -142,13 +140,57 @@ class TempAttentionNet(BaseNet):
             self.detector.cuda()
             self.estimator.cuda()
 
+    def reset_params(self, m):
+        if isinstance(m, nn.Linear):
+            m.reset_parameters()
+
+    def reset_weights(self):
+        self.main_net.apply(self.reset_params)
+        self.detector.apply(self.reset_params)
+        self.estimator.apply(self.reset_params)
 
     def forward(self, x, m):
 
         x = self.main_net(x)
         x_det = torch.transpose(m * self.detector(x), 2, 1)
 
-        w = Softmax(dim=2)(x_det / 0.1)
+        w = Softmax(dim=2)(x_det / self.dropout)
+
+        x = torch.bmm(w, x)
+        out = self.estimator(x)
+        if isinstance(self, BaseClassifier):
+            out = Sigmoid()(out)
+        out = out.view(-1, 1)
+        return w, out
+
+
+class GumbelAttentionNet(BaseNet):
+
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(init_cuda=init_cuda)
+        self.main_net = MainNet(ndim)
+        self.estimator = Linear(ndim[-1], 1)
+        #
+        input_dim = ndim[-1]
+        attention = []
+        for dim in det_ndim:
+            attention.append(Linear(input_dim, dim))
+            attention.append(Sigmoid())
+            input_dim = dim
+        attention.append(Linear(input_dim, 1))
+        self.detector = Sequential(*attention)
+
+        if init_cuda:
+            self.main_net.cuda()
+            self.detector.cuda()
+            self.estimator.cuda()
+
+    def forward(self, x, m):
+
+        x = self.main_net(x)
+        x_det = torch.transpose(m * self.detector(x), 2, 1)
+
+        w = nn.functional.gumbel_softmax(x_det, tau=self.dropout, dim=2)
 
         x = torch.bmm(w, x)
         out = self.estimator(x)
@@ -190,8 +232,8 @@ class SelfAttentionNet(BaseNet):
 
 
 class GatedAttentionNet(AttentionNet, BaseNet):
-    def __init__(self, ndim=None, det_ndim=None,  init_cuda=False):
-        super().__init__(ndim=ndim, det_ndim=det_ndim,  init_cuda=init_cuda)
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
         self.main_net = MainNet(ndim)
         self.attention_V = Sequential(Linear(ndim[-1], det_ndim[0]), Tanh())
         self.attention_U = Sequential(Linear(ndim[-1], det_ndim[0]), Sigmoid())
@@ -251,20 +293,27 @@ class GatedAttentionNetRegressor(GatedAttentionNet, BaseRegressor):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
 
+
 class TempAttentionNetRegressor(TempAttentionNet, BaseRegressor):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
+
+
+class GumbelAttentionNetRegressor(GumbelAttentionNet, BaseRegressor):
+    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+        super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
+
 
 class TempAttentionNetClassifier(TempAttentionNet, BaseClassifier):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
 
+
 class GlobalTempAttentionNetRegressor(GlobalTempAttentionNet, BaseRegressor):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
 
+
 class GlobalTempAttentionNetClassifier(GlobalTempAttentionNet, BaseClassifier):
     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
-
-

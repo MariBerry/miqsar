@@ -36,6 +36,7 @@ class BaseNet(nn.Module):
         if self.net and self.init_cuda:
             self.net.cuda()
 
+
     def name(self):
         return self.__class__.__name__
 
