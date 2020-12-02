@@ -45,7 +45,7 @@ def gen_tautomers(data_file,  path, max_n_tau=None):
             # form the list
             smile_t.insert(0, orig)
             for n, tautomer in enumerate(smile_t):
-                k = j + "__{tautomer_id}"
+                k = j + "_{tautomer_id}"
                 out.write(str(tautomer) + "," + k.format(tautomer_id=n) + "," + str(a) + ","+ j + "\n")
                 if max_n_tau is not None and (n + 1) >= max_n_tau: break
     return out_fname

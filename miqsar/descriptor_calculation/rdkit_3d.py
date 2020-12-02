@@ -34,7 +34,7 @@ def _rdkit_3d(mol_tup):
     return tmp
 
 
-def main(fname, ncpu, path=None, del_log=True):
+def main(fname=None, ncpu=None, path=None, del_log=True):
     if path is None:
         path = os.path.dirname(os.path.abspath(fname))
 

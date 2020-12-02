@@ -105,7 +105,7 @@ def add_uniq_col(fname, ncpu, col_clean):
     return result_cols
 
 
-def main(fname, ncpu, path=None, col_clean=None, del_undef=True):
+def main(fname=None, ncpu=10, path=None, col_clean=None, del_undef=True):
 # col_clean can use for test set
     p = Pool(ncpu, maxtasksperchild=50)
     start = time()
