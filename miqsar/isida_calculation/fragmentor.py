@@ -3,7 +3,7 @@ import shutil
 import numpy as np
 import pandas as pd
 from CIMtools.preprocessing import Fragmentor
-from CGRtools.files.SDFrw import SDFread
+from CGRtools.files.SDFrw import SDFRead
 
 class BagGenerator(Fragmentor):
 
@@ -70,7 +70,7 @@ def bags_from_sdf(input_sdf_file=None, fragmentor_path='./',
     environ['PATH'] += ':{}'.format(fragmentor_path)
 
     # read mols and init fragmentor
-    mols = SDFread(input_sdf_file, remap=False).read()
+    mols = SDFRead(input_sdf_file, remap=False).read()
 
     labels = np.array([float(mol.meta[label_name]) for mol in mols])
     if ids_name:

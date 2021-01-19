@@ -67,16 +67,13 @@ class DataReader:
         return bags, labels, idx
 
     def read_2d(self, dsc_dir):
-        # f1 = os.path.join(dsc_dir, self.dataset, '2DDescrRDKit_{}_0.csv'.format(self.dataset))
-        # f2 = os.path.join(dsc_dir, self.dataset, 'MorganFprRDKit_{}_0.csv'.format(self.dataset))
-        # f3 = os.path.join(dsc_dir, self.dataset, 'PhFprRDKit_{}_0.csv'.format(self.dataset))
-        #
-        # self.data['dsc']['2d'] = {'rdkit': self.load_data(f1, self.mol_id)[0],
-        #                           'morgan': self.load_data(f2, self.mol_id)[0],
-        #                           'phf': self.load_data(f3, self.mol_id)[0]}
+        f1 = os.path.join(dsc_dir, self.dataset, '2DDescrRDKit_{}_0.csv'.format(self.dataset))
         f2 = os.path.join(dsc_dir, self.dataset, 'MorganFprRDKit_{}_0.csv'.format(self.dataset))
+        f3 = os.path.join(dsc_dir, self.dataset, 'PhFprRDKit_{}_0.csv'.format(self.dataset))
 
-        self.data['dsc']['2d'] = {'morgan': self.load_data(f2, self.mol_id)[0]}
+        self.data['dsc']['2d'] = {'rdkit': self.load_data(f1, self.mol_id)[0],
+                                  'morgan': self.load_data(f2, self.mol_id)[0],
+                                  'phf': self.load_data(f3, self.mol_id)[0]}
 
         return self.data
 
@@ -300,3 +297,61 @@ class ModelBuilder:
             results.to_csv(csv_file, index=False)
 
         return self
+
+
+
+def train_test_split_scaffold(datasets_path, chembl, bags, labels, idx):
+    import os
+    import pandas as pd
+    from collections import defaultdict
+    from rdkit import Chem
+    from rdkit.Chem.Scaffolds.MurckoScaffold import MakeScaffoldGeneric
+    from sklearn.model_selection import train_test_split
+
+    class Molecule:
+        def __init__(self, smiles=None, scaffold=None, idx=None):
+            self.smiles = smiles
+            self.scaffold = scaffold
+            self.idx = idx
+            return
+
+    #datasets = '/home/zankov/dev/miqsar/datasets/tautomers/'
+    data = pd.read_csv(os.path.join(datasets_path, chembl), header=None)
+
+    mols = []
+    for smi, idxes in zip(data[0].to_list(), data[1].to_list()):
+        mols.append(
+            Molecule(smiles=smi, scaffold=Chem.MolToSmiles(MakeScaffoldGeneric(Chem.MolFromSmiles(smi))), idx=idxes))
+    #
+    res = defaultdict(list)
+    for mol in mols:
+        res[mol.scaffold].append(mol.idx)
+    #
+    scaffolds = list(res.keys())
+    train, test = train_test_split(scaffolds, test_size=0.25, random_state=42)
+    #
+    train_idx = []
+    for i in train:
+        train_idx.extend(res[i])
+    test_idx = []
+    for i in test:
+        test_idx.extend(res[i])
+
+    #
+    bags_train = []
+    labels_train = []
+    bags_test = []
+    labels_test = []
+    idx_train = []
+    idx_test = []
+    for bag, label, i in zip(bags, labels, idx):
+        if i in train_idx:
+            bags_train.append(bag)
+            labels_train.append(label)
+            idx_train.append(i)
+        else:
+            bags_test.append(bag)
+            labels_test.append(label)
+            idx_test.append(i)
+
+    return bags_train, bags_test, labels_train, labels_test, idx_train, idx_test
