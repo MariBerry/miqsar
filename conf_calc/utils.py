@@ -167,9 +167,6 @@ class ModelBuilder:
         weight_decay_opt = defaultdict(list)
         for weight_decay in [0, 0.1, 0.01]:
             for net in [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                        MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        miNetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                        MIWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
                         miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
                         ]:
 
@@ -237,9 +234,6 @@ class ModelBuilder:
         set_seed(self.seed)
 
         estimators = [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                      MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                      miNetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
-                      MIWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
                       miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda)]
 
         results = pd.DataFrame()

@@ -49,8 +49,7 @@ def run(dataset):
             data = data_reader.read_3d(DATA_DIR, n_conf)
             bags, labels, idx = data['dsc']['3d_{}'.format(dsc)][n_conf], data['labels'], data['idx']
             x_train, x_test, y_train, y_test, idx_train, idx_test = train_test_split_scaffold(DATASETS_PATH, '{}.smi'.format(dataset), bags, labels, idx)
-            x_train, x_val, y_train, y_val, idx_train, idx_val = train_test_split(x_train, y_train, idx_train, test_size=0.25,
-                                                                                  random_state=RANDOM_STATE)
+            x_train, x_val, y_train, y_val, idx_train, idx_val = train_test_split(x_train, y_train, idx_train, test_size=0.25, random_state=RANDOM_STATE)
             _, x_test = scale_data(x_train, x_test)
             x_train, x_val = scale_data(x_train, x_val)
             #
