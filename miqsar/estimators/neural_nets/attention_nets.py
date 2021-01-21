@@ -4,7 +4,7 @@ from torch.nn import Sequential, Linear, Sigmoid, Softmax, Tanh
 from torch.nn.functional import softmax
 from .base_nets import BaseRegressor, BaseClassifier, BaseNet
 from .mi_nets import MainNet
-from .modules import HopfieldPooling
+#from .modules import HopfieldPooling
 
 
 class WeightsDropout(nn.Module):
@@ -82,33 +82,34 @@ class AttentionNet(BaseNet):
         return w, out
 
 
-class HopfieldNet(BaseNet):
-    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
-        super().__init__(init_cuda=init_cuda)
-        self.main_net = MainNet(ndim)
-        self.estimator = Linear(ndim[-1], 1)
-        #
-        input_dim = ndim[-1]
-        self.detector = HopfieldPooling(input_size=input_dim, hidden_size=det_ndim[0], output_size=1, num_heads=1)
-
-        if init_cuda:
-            self.main_net.cuda()
-            self.detector.cuda()
-            self.estimator.cuda()
-
-    def forward(self, x, m):
-        x = self.main_net(x)
-        x_det = torch.transpose(m * self.detector(x), 2, 1)
-
-        w = Softmax(dim=2)(x_det)
-        w = WeightsDropout(p=self.dropout)(w)
-
-        x = torch.bmm(w, x)
-        out = self.estimator(x)
-        if isinstance(self, BaseClassifier):
-            out = Sigmoid()(out)
-        out = out.view(-1, 1)
-        return w, out
+# class HopfieldNet(BaseNet):
+#     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+#         super().__init__(init_cuda=init_cuda)
+#         self.main_net = MainNet(ndim)
+#         self.estimator = Linear(ndim[-1], 1)
+#         #
+#         input_dim = ndim[-1]
+#         self.detector = HopfieldPooling(input_size=input_dim, hidden_size=det_ndim[0], output_size=1, num_heads=1)
+#
+#         if init_cuda:
+#             self.main_net.cuda()
+#             self.detector.cuda()
+#             self.estimator.cuda()
+#
+#     def forward(self, x, m):
+#         x = self.main_net(x)
+#         x_det = torch.transpose(m * self.detector(x), 2, 1)
+#         x_det = m * self.detector(x)
+#
+#         w = Softmax(dim=2)(x_det)
+#         w = WeightsDropout(p=self.dropout)(w)
+#
+#         x = torch.bmm(w, x)
+#         out = self.estimator(x)
+#         if isinstance(self, BaseClassifier):
+#             out = Sigmoid()(out)
+#         out = out.view(-1, 1)
+#         return w, out
 
 
 class GlobalTempAttentionNet(BaseNet):
@@ -349,11 +350,11 @@ class GlobalTempAttentionNetClassifier(GlobalTempAttentionNet, BaseClassifier):
         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
 
 
-class HopfieldNetClassifier(HopfieldNet, BaseClassifier):
-    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
-        super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
-
-
-class HopfieldNetRegressor(HopfieldNet, BaseRegressor):
-    def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
-        super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
+# class HopfieldNetClassifier(HopfieldNet, BaseClassifier):
+#     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+#         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
+#
+#
+# class HopfieldNetRegressor(HopfieldNet, BaseRegressor):
+#     def __init__(self, ndim=None, det_ndim=None, init_cuda=False):
+#         super().__init__(ndim=ndim, det_ndim=det_ndim, init_cuda=init_cuda)
