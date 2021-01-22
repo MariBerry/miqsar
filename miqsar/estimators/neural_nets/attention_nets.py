@@ -89,26 +89,25 @@ class AttentionNet(BaseNet):
 #         self.estimator = Linear(ndim[-1], 1)
 #         #
 #         input_dim = ndim[-1]
-#         self.detector = HopfieldPooling(input_size=input_dim, hidden_size=det_ndim[0], output_size=1, num_heads=1)
+#         self.pooling = HopfieldPooling(input_size=input_dim, hidden_size=input_dim, output_size=input_dim, num_heads=4)
 #
 #         if init_cuda:
 #             self.main_net.cuda()
-#             self.detector.cuda()
+#             self.pooling.cuda()
 #             self.estimator.cuda()
 #
 #     def forward(self, x, m):
 #         x = self.main_net(x)
-#         x_det = torch.transpose(m * self.detector(x), 2, 1)
-#         x_det = m * self.detector(x)
 #
-#         w = Softmax(dim=2)(x_det)
-#         w = WeightsDropout(p=self.dropout)(w)
+#         x = self.pooling(x)
 #
-#         x = torch.bmm(w, x)
+#         x = x.view(-1, 1, x.shape[-1])
+#
 #         out = self.estimator(x)
 #         if isinstance(self, BaseClassifier):
 #             out = Sigmoid()(out)
 #         out = out.view(-1, 1)
+#         w = None
 #         return w, out
 
 
