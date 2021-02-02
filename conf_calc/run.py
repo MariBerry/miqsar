@@ -15,6 +15,7 @@ MAX_CONF = 100
 INIT_CUDA = False
 DATASETS_PATH = 'datasets'
 TRAIN_TEST_SPLIT_FUNCTION = pg_train_test_split_scaffold
+DATASETS_TO_MODEL = open("datasets_to_model.txt", "r").read().split(',')
 
 if os.path.exists(OUT_DIR):
    shutil.rmtree(OUT_DIR)
@@ -24,6 +25,8 @@ else:
 
 
 def run(dataset):
+    if dataset not in DATASETS_TO_MODEL:
+        return
     os.mkdir(os.path.join(OUT_DIR, dataset))
 
     data_reader = DataReader(DATA_DIR, dataset)
@@ -81,10 +84,7 @@ def run(dataset):
 
     return
 
-datasets = open("datasets_to_model.txt", "r").read().split(',')
+datasets = os.listdir(DATA_DIR)
 if __name__ == '__main__':
     with Pool(len(datasets)) as p:
         p.map(run, datasets, chunksize=1)
-
-
-
