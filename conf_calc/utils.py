@@ -3,6 +3,7 @@ sys.path.append('/home/zankov/dev/miqsar')
 
 import os
 import torch
+import random
 
 import numpy as np
 import pandas as pd
@@ -10,7 +11,8 @@ import pandas as pd
 from miqsar.estimators.neural_nets.base_nets import BaseClassifier
 from miqsar.estimators.neural_nets.mlp_nets import MIWrapperMLPClassifier, MIWrapperMLPRegressor
 from miqsar.estimators.neural_nets.mlp_nets import miWrapperMLPClassifier, miWrapperMLPRegressor
-from miqsar.estimators.neural_nets.attention_nets import AttentionNetClassifier, AttentionNetRegressor, TempAttentionNetRegressor
+from miqsar.estimators.neural_nets.attention_nets import AttentionNetClassifier, AttentionNetRegressor, \
+    TempAttentionNetRegressor
 from miqsar.estimators.neural_nets.attention_nets import GatedAttentionNetClassifier, GatedAttentionNetRegressor
 from miqsar.estimators.neural_nets.mi_nets import MINetClassifier, MINetRegressor
 from miqsar.estimators.neural_nets.mi_nets import miNetClassifier, miNetRegressor
@@ -21,6 +23,14 @@ from collections import defaultdict
 from sklearn.metrics import (r2_score, mean_squared_error, accuracy_score, balanced_accuracy_score,
                              average_precision_score,
                              brier_score_loss, f1_score, precision_score, recall_score, roc_auc_score)
+
+import os
+import pandas as pd
+from collections import defaultdict
+from rdkit import Chem
+from rdkit.Chem.Scaffolds.MurckoScaffold import MakeScaffoldGeneric
+from sklearn.model_selection import train_test_split
+from rdkit.Chem.Descriptors import ExactMolWt
 
 
 class DataReader:
@@ -96,14 +106,14 @@ class DataReader:
 
         dsc_2d = data_2d['dsc']['2d']['morgan']
         dsc_3d = data_3d['dsc']['3d'][n_conf]
-        
+
         new_3d = []
         for n, (vec_2d, vec_3d) in enumerate(zip(dsc_2d, dsc_3d)):
             if n_conf == 1:
                 new_3d.append(np.concatenate([vec_2d, vec_3d], axis=1))
             else:
                 new_3d.append(np.concatenate([np.tile(vec_2d, (vec_3d.shape[0], 1)), vec_3d], axis=1))
-    
+
         self.data['dsc']['3d'][n_conf] = np.array(new_3d)
 
         return self.data
@@ -167,7 +177,8 @@ class ModelBuilder:
         weight_decay_opt = defaultdict(list)
         for weight_decay in [0, 0.1, 0.01]:
             for net in [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                        MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda)
+                        MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
+                        miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda)
                         ]:
 
                 if 'Classifier' in net.__class__.__name__:
@@ -202,10 +213,8 @@ class ModelBuilder:
                     labels_train = np.where(y_train > self.tresh, 1, 0)
                     labels_val = np.where(y_val > self.tresh, 1, 0)
 
-                    #net.fit(x_train, labels_train, n_epoch=self.n_epoch, batch_size=self.batch_size,
-                            #weight_decay=weight_decay_opt[net.__class__.__name__], dropout=dropout, lr=self.lr)
-                    net.fit(x_train, labels_train, n_epoch=2, batch_size=self.batch_size,
-                            weight_decay=weight_decay_opt[net.__class__.__name__], dropout=dropout, lr=self.lr)
+                    net.fit(x_train, labels_train, n_epoch=self.n_epoch, batch_size=self.batch_size,
+                        weight_decay=weight_decay_opt[net.__class__.__name__], dropout=dropout, lr=self.lr)
 
                     val_scores = classification_metrics(labels_val, net.predict(x_val))
                     dropout_opt[net.__class__.__name__].append((dropout, val_scores['balanced_accuracy']))
@@ -236,7 +245,8 @@ class ModelBuilder:
         set_seed(self.seed)
 
         estimators = [AttentionNetRegressor(ndim=ndim, det_ndim=det_ndim, init_cuda=self.init_cuda),
-                      MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda)]
+                      MINetRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda),
+                      miWrapperMLPRegressor(ndim=ndim, pool='mean', init_cuda=self.init_cuda)]
 
         results = pd.DataFrame()
         for net, (model_name, weight_decay, dropout) in zip(estimators, nets_to_train):
@@ -295,15 +305,7 @@ class ModelBuilder:
         return self
 
 
-
-def train_test_split_scaffold(datasets_path, chembl, bags, labels, idx):
-    import os
-    import pandas as pd
-    from collections import defaultdict
-    from rdkit import Chem
-    from rdkit.Chem.Scaffolds.MurckoScaffold import MakeScaffoldGeneric
-    from sklearn.model_selection import train_test_split
-
+def ti_train_test_split_scaffold(datasets_path, chembl, bags, labels, idx, random_state=45):
     class Molecule:
         def __init__(self, smiles=None, scaffold=None, idx=None):
             self.smiles = smiles
@@ -311,27 +313,94 @@ def train_test_split_scaffold(datasets_path, chembl, bags, labels, idx):
             self.idx = idx
             return
 
-    #datasets = '/home/zankov/dev/miqsar/datasets/tautomers/'
+    # datasets = '/home/zankov/dev/miqsar/datasets/tautomers/'
     data = pd.read_csv(os.path.join(datasets_path, chembl), header=None)
 
     mols = []
     for smi, idxes in zip(data[0].to_list(), data[1].to_list()):
-        mols.append(
-            Molecule(smiles=smi, scaffold=Chem.MolToSmiles(MakeScaffoldGeneric(Chem.MolFromSmiles(smi))), idx=idxes))
+        if ExactMolWt(Chem.MolFromSmiles(smi)) > 700:
+            continue
+        try:
+            mols.append(Molecule(smiles=smi, scaffold=Chem.MolToSmiles(MakeScaffoldGeneric(Chem.MolFromSmiles(smi))), idx=idxes))
+        except:
+            continue
+
     #
     res = defaultdict(list)
     for mol in mols:
         res[mol.scaffold].append(mol.idx)
     #
-    scaffolds = list(res.keys())
-    train, test = train_test_split(scaffolds, test_size=0.25, random_state=42)
-    #
-    train_idx = []
-    for i in train:
-        train_idx.extend(res[i])
+    test_size = int(len(data) * 0.2)
+
     test_idx = []
-    for i in test:
-        test_idx.extend(res[i])
+    train_idx = []
+    res_sorted = sorted([(len(v), v) for k, v in res.items()], key=lambda x: x[0])
+
+    for i in res_sorted:
+        if len(test_idx) < test_size:
+            test_idx.extend(i[1])
+        else:
+            train_idx.extend(i[1])
+
+    #
+    bags_train = []
+    labels_train = []
+    bags_test = []
+    labels_test = []
+    idx_train = []
+    idx_test = []
+    for bag, label, i in zip(bags, labels, idx):
+        if i in train_idx:
+            bags_train.append(bag)
+            labels_train.append(label)
+            idx_train.append(i)
+        else:
+            bags_test.append(bag)
+            labels_test.append(label)
+            idx_test.append(i)
+
+    return bags_train, bags_test, labels_train, labels_test, idx_train, idx_test
+
+
+def pg_train_test_split_scaffold(datasets_path, chembl, bags, labels, idx, random_state=45):
+    class Molecule:
+        def __init__(self, smiles=None, scaffold=None, idx=None):
+            self.smiles = smiles
+            self.scaffold = scaffold
+            self.idx = idx
+            return
+
+    # datasets = '/home/zankov/dev/miqsar/datasets/tautomers/'
+    data = pd.read_csv(os.path.join(datasets_path, chembl), header=None)
+
+    mols = []
+    for smi, idxes in zip(data[0].to_list(), data[1].to_list()):
+        if ExactMolWt(Chem.MolFromSmiles(smi)) > 700:
+            continue
+        try:
+            mols.append(
+                Molecule(smiles=smi, scaffold=Chem.MolToSmiles(MakeScaffoldGeneric(Chem.MolFromSmiles(smi))), idx=idxes))
+        except:
+            continue
+
+    #
+    res = defaultdict(list)
+    for mol in mols:
+        res[mol.scaffold].append(mol.idx)
+    #
+    test_size = int(len(data) * 0.2)
+
+    res = [(len(v), v) for k, v in res.items()]
+    random.seed(random_state)
+    random.shuffle(res)
+
+    test_idx = []
+    train_idx = []
+    for i in res:
+        if len(test_idx) < test_size:
+            test_idx.extend(i[1])
+        else:
+            train_idx.extend(i[1])
 
     #
     bags_train = []
